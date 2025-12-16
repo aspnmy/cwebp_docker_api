@@ -3,7 +3,7 @@ version: '3.9'
 services:
   cwebp_docker_api:
     image: ghcr.io/aspnmy/cwebp_docker_api:latest
-    container_name: cwebp_docker_api
+    container_name: cwebp_docker_api_v1
     environment:
       - DELTIME=0
       - IMGSIZE=100
