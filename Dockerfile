@@ -67,4 +67,4 @@ ENV LD_LIBRARY_PATH="/app/libcwebp:${LD_LIBRARY_PATH}"
 EXPOSE 3333
 
 # 运行应用
-CMD ["./cwebp_docker_api"]
+CMD ["./cwebp_rustapi/cwebp_docker_api"]
