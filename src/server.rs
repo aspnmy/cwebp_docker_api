@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::routes;
 
 /// 启动Actix Web服务器
-pub async fn run(output_dir: &Path, deltime: i32, max_image_size: u64) -> std::io::Result<()> {
+pub async fn run(output_dir: &Path, deltime: i32, max_image_size: u64, x_api_key: String) -> std::io::Result<()> {
     let output_dir = output_dir.to_path_buf();
     let addr = "0.0.0.0:3333";
     
@@ -16,6 +16,7 @@ pub async fn run(output_dir: &Path, deltime: i32, max_image_size: u64) -> std::i
     info!("Image access endpoint: http://{}/api/images/:filename", addr);
     info!("File deletion time: {} hours (0 means no deletion)", deltime);
     info!("Maximum image size: {} bytes", max_image_size);
+    info!("API Key: {}", x_api_key);
     
     // 如果deltime大于0，启动定时清理任务
     if deltime > 0 {
@@ -46,6 +47,8 @@ pub async fn run(output_dir: &Path, deltime: i32, max_image_size: u64) -> std::i
             .app_data(web::Data::new(output_dir.clone()))
             // 注入最大图片大小限制
             .app_data(web::Data::new(max_image_size))
+            // 注入API密钥
+            .app_data(web::Data::new(x_api_key.clone()))
             // 配置路由
             .configure(routes::configure)
     })

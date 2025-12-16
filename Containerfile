@@ -1,3 +1,4 @@
+# 第一阶段：构建Rust应用
 FROM rust:alpine3.23 AS builder
 
 # 设置工作目录
@@ -15,7 +16,6 @@ RUN mkdir -p src && echo 'fn main() {}' > src/main.rs
 # 构建依赖
 RUN cargo build --release
 
-
 # 复制源代码
 COPY src ./src
 
@@ -26,15 +26,14 @@ RUN cargo build --release
 RUN wget https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0-linux-x86-64.tar.gz \
     && tar -xzvf libwebp-1.6.0-linux-x86-64.tar.gz \
     && mkdir -p /app/libcweb \
-    && cp -r libwebp-1.6.0-linux-x86-64/* /app/libcweb/ 
-
+    && cp -r libwebp-1.6.0-linux-x86-64/* /app/libcweb/ \
+    && rm -rf libwebp-1.6.0-linux-x86-64.tar.gz libwebp-1.6.0-linux-x86-64
 
 # 最终版本
 FROM alpine:3.23.0
 
 # 设置工作目录
 WORKDIR /app
-
 
 # 创建输出目录
 RUN mkdir -p /app/img_webp \
@@ -48,7 +47,7 @@ RUN mkdir -p /app/img_webp \
     && chown -R 1000:1000 /app/libcwebp
 
 # 复制cwebp工具和库
-COPY --from=builder /app/libcweb/* /app/libcwebp
+COPY --from=builder /app/libcweb /app/libcwebp
 
 # 复制构建好的应用
 COPY --from=builder /app/target/release/cwebp_docker_api /app/cwebp_rustapi
@@ -67,4 +66,4 @@ ENV LD_LIBRARY_PATH="/app/libcwebp:${LD_LIBRARY_PATH}"
 EXPOSE 3333
 
 # 运行应用
-CMD ["./cwebp_docker_api"]
+CMD ["./cwebp_rustapi/cwebp_docker_api"]

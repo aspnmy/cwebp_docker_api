@@ -32,8 +32,12 @@ fn main() {
     let imgsize = imgsize_str.parse::<u64>().unwrap_or(100) * 1024 * 1024; // 转换为字节
     info!("Image size limit set to: {} bytes", imgsize);
     
+    // 从环境变量读取API密钥，默认为dev
+    let x_api_key = env::var("X_API_KEY").unwrap_or("dev".to_string());
+    info!("API Key set to: {}", x_api_key);
+    
     // 启动异步运行时并运行服务器
     System::new().block_on(async move {
-        server::run(output_dir, deltime, imgsize).await.expect("Failed to start server");
+        server::run(output_dir, deltime, imgsize, x_api_key).await.expect("Failed to start server");
     });
 }

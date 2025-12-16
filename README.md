@@ -24,7 +24,8 @@ cwebp API Service 是一个基于 Rust + Actix Web 开发的高性能图片转�
 * **健康检查端点**
 * **文件自动清理**：支持通过 DELTIME 环境变量配置文件保留时间
 * **图片大小限制**：支持通过 IMGSIZE 环境变量配置最大上传图片大小（MB）
-* **Docker 容器化支持**：提供完整的 Dockerfile 和 docker-compose.yml
+* **API 密钥验证**：支持通过 X_API_KEY 环境变量配置 API 密钥，访问 API 时需要在请求头中携带 x-api-key 参数
+* **容器化支持**：提供完整的 Dockerfile、docker-compose.yml 和 Podman Containerfile、podman-compose.yml
 * **高性能、低内存占用**
 
 ## 4. 项目结构
@@ -47,7 +48,9 @@ cwebp_docker_api/
 │       └── file.rs       # 文件处理工具
 ├── Cargo.toml            # Rust 项目配置
 ├── Dockerfile            # Docker 配置
+├── Containerfile         # Podman 配置
 ├── docker-compose.yml    # Docker Compose 配置
+├── podman-compose.yml    # Podman Compose 配置
 └── README.md             # 项目文档
 ```
 
@@ -97,6 +100,12 @@ docker run -d -p 3333:3333 -e IMGSIZE=50 --name cwebp-api cwebp-api
 
 # 配置文件保留时间为 48 小时，图片大小限制为 200MB
 docker run -d -p 3333:3333 -e DELTIME=48 -e IMGSIZE=200 --name cwebp-api cwebp-api
+
+# 配置API密钥
+docker run -d -p 3333:3333 -e X_API_KEY=your_secret_key --name cwebp-api cwebp-api
+
+# 完整配置示例
+docker run -d -p 3333:3333 -e DELTIME=72 -e IMGSIZE=100 -e X_API_KEY=your_secret_key --name cwebp-api cwebp-api
 ```
 
 #### 5.2.4 容器间访问
@@ -127,6 +136,47 @@ docker-compose down
 
 # 停止服务并删除数据卷
 docker-compose down -v
+```
+
+### 5.3 Podman 部署
+
+#### 5.3.1 构建 Podman 镜像
+
+```bash
+# 使用 Containerfile 构建镜像
+podman build -t cwebp-api -f Containerfile .
+```
+
+#### 5.3.2 运行 Podman 容器
+
+```bash
+# 基本运行
+podman run -d -p 3333:3333 --name cwebp-api cwebp-api
+
+# 带配置运行
+podman run -d -p 3333:3333 -e DELTIME=24 -e IMGSIZE=50 -e X_API_KEY=your_secret_key --name cwebp-api cwebp-api
+```
+
+#### 5.3.3 使用 Podman Compose
+
+```bash
+# 启动服务
+podman-compose up -d
+
+# 重新构建并启动服务
+podman-compose up -d --build
+
+# 查看服务状态
+podman-compose ps
+
+# 查看服务日志
+podman-compose logs -f
+
+# 停止服务
+podman-compose down
+
+# 停止服务并删除数据卷
+podman-compose down -v
 ```
 
 ## 6. API 文档
@@ -263,15 +313,21 @@ cwebp [options] input_file -o output_file.webp
    * 默认值为 `100`（即 100MB）
    * 配置为 `0` 时，无大小限制
    * 超过限制的图片会被拒绝，返回 400 Bad Request 错误
-5. **性能优化**：
+5. **API 密钥验证**：
+   * 支持通过 `X_API_KEY` 环境变量配置 API 密钥
+   * 默认值为 `dev`
+   * 访问 API 时需要在请求头中携带 `x-api-key` 参数
+   * 验证失败时返回 401 Unauthorized 错误
+   * 健康检查端点 `/health` 不需要 API 密钥
+6. **性能优化**：
    * 对于高并发场景，建议使用负载均衡
    * 可以调整 `method` 参数来平衡转换速度和文件大小
    * 对于频繁使用的转换参数，可以考虑使用预设配置
-6. **错误处理**：服务会返回详细的错误信息，便于调试和问题定位
-7. **Docker 部署**：
+7. **错误处理**：服务会返回详细的错误信息，便于调试和问题定位
+8. **Docker 部署**：
    * 建议使用 `docker-compose` 进行部署，简化配置和管理
    * 可以通过数据卷挂载 `/app/img_webp` 目录，实现数据持久化
-8. **安全建议**：
+9. **安全建议**：
    * 生产环境建议添加认证机制
    * 限制最大文件大小，防止过大的图片导致服务崩溃
    * 考虑添加 IP 白名单或访问控制

@@ -1,0 +1,1 @@
+1、项目构建及测试，参考此文件.trae\rules\README_WSL2部署podman容器打包业务.md
