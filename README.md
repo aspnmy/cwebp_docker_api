@@ -1,5 +1,5 @@
 # cwebp API Service
-
+[![Docker Build and Push](https://github.com/aspnmy/cwebp_docker_api/actions/workflows/docker-image.yml/badge.svg?branch=master)](https://github.com/aspnmy/cwebp_docker_api/actions/workflows/docker-image.yml)
 ## 1. 项目概述
 
 cwebp API Service 是一个基于 Rust + Actix Web 开发的高性能图片转换服务，提供将各种格式图片转换为 WebP 格式的 API 接口。该服务集成了 cwebp 命令行工具，支持丰富的转换参数和多种响应类型。
