@@ -1,169 +1,387 @@
-# cwebpAPI For Docker
-- cwebp版本： https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0-linux-x86-64.tar.gz
-- docker下运行libcwebp使用API接口，提供api端的webp无损转换业务，为其他业务提供服务
+# cwebp API Service
 
-## cwebp 使用方式
+## 1. 项目概述
 
-### 无损压缩的常用指令 示例
-* 如需最高压缩使用-z 9,默认-z 6；使用-q 或者-m参数-z会失效
-* 示例1： 无损压缩图片为webp格式(最高质量无压缩)
+cwebp API Service 是一个基于 Rust + Actix Web 开发的高性能图片转换服务，提供将各种格式图片转换为 WebP 格式的 API 接口。该服务集成了 cwebp 命令行工具，支持丰富的转换参数和多种响应类型。
 
-```
-cwebp -lossless -near_lossless 100 input.png -o output.webp
-```
+## 2. 技术栈
 
+* **Web框架**：Actix Web 4
+* **图片处理**：集成 cwebp 命令行工具
+* **文件上传**：actix-multipart
+* **序列化**：serde
+* **依赖管理**：Cargo
+* **容器化**：Docker
 
-* 示例2： 无损压缩png图片为webp格式（中等质量）
+## 3. 功能特性
 
-```
-cwebp -lossless -near_lossless 60 input.png -o output.webp
-```
+* **支持多种图片格式**：PNG、JPEG、TIFF、WebP 等
+* **支持无损和有损转换**
+* **丰富的转换参数**：质量、压缩级别、预设配置等
+* **两种响应类型**：
+  * `webp`：返回 WebP 图片的下载地址（JSON 格式）
+  * `base64`：返回 Base64 编码的 WebP 数据（JSON 格式）
+* **健康检查端点**
+* **文件自动清理**：支持通过 DELTIME 环境变量配置文件保留时间
+* **图片大小限制**：支持通过 IMGSIZE 环境变量配置最大上传图片大小（MB）
+* **Docker 容器化支持**：提供完整的 Dockerfile 和 docker-compose.yml
+* **高性能、低内存占用**
 
-* 示例3： 有损压缩图片为webp格式（最高质量）
-
-```
-cwebp -lossless -q 100 input.png -o output.webp
-```
-* 示例4： 有损压缩图片为webp格式（中等质量）
-
-```
-cwebp -lossless -q 75 input.png -o output.webp
-```
-
-
+## 4. 项目结构
 
 ```
-摘要
+cwebp_docker_api/
+├── .github/
+│   └── workflows/
+│       └── docker-build.yml
+├── src/                  # Rust + Actix Web 实现
+│   ├── main.rs           # 主入口
+│   ├── server.rs         # 服务器配置
+│   ├── routes/           # API 路由
+│   │   ├── convert.rs    # 图片转换路由
+│   │   ├── health.rs     # 健康检查路由
+│   │   └── mod.rs        # 路由模块
+│   ├── services/         # 业务逻辑
+│   │   └── cwebp.rs      # cwebp 命令封装
+│   └── utils/            # 工具函数
+│       └── file.rs       # 文件处理工具
+├── Cargo.toml            # Rust 项目配置
+├── Dockerfile            # Docker 配置
+├── docker-compose.yml    # Docker Compose 配置
+└── README.md             # 项目文档
+```
+
+## 5. 安装和运行
+
+### 5.1 本地开发
+
+#### 5.1.1 安装依赖
+
+```bash
+cargo build --release
+```
+
+#### 5.1.2 启动服务
+
+```bash
+cargo run --release
+```
+
+服务将在端口 3333 上运行。
+
+### 5.2 Docker 部署
+
+#### 5.2.1 构建 Docker 镜像
+
+```bash
+docker build -t cwebp-api .
+```
+
+#### 5.2.2 运行 Docker 容器
+
+```bash
+docker run -d -p 3333:3333 --name cwebp-api cwebp-api
+```
+
+#### 5.2.3 运行带配置的 Docker 容器
+
+```bash
+# 配置文件保留时间为 24 小时
+docker run -d -p 3333:3333 -e DELTIME=24 --name cwebp-api cwebp-api
+
+# 不自动删除文件
+docker run -d -p 3333:3333 -e DELTIME=0 --name cwebp-api cwebp-api
+
+# 配置图片大小限制为 50MB
+docker run -d -p 3333:3333 -e IMGSIZE=50 --name cwebp-api cwebp-api
+
+# 配置文件保留时间为 48 小时，图片大小限制为 200MB
+docker run -d -p 3333:3333 -e DELTIME=48 -e IMGSIZE=200 --name cwebp-api cwebp-api
+```
+
+#### 5.2.4 容器间访问
+
+在 Docker Compose 环境中，其他容器可以通过容器名称访问 cwebp API 服务：
+
+```bash
+curl -X POST -F "image=@input.jpg" http://cwebp-api:3333/api/convert
+```
+
+#### 5.2.5 使用 Docker Compose
+
+```bash
+# 启动服务
+docker-compose up -d
+
+# 重新构建并启动服务
+docker-compose up -d --build
+
+# 查看服务状态
+docker-compose ps
+
+# 查看服务日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 停止服务并删除数据卷
+docker-compose down -v
+```
+
+## 6. API 文档
+
+### 6.1 健康检查
+
+* **URL**: `/health`
+* **方法**: `GET`
+* **功能**: 检查服务是否正常运行
+* **响应**: JSON 格式的状态信息
+
+### 6.2 图片转换
+
+* **URL**: `/api/convert`
+* **方法**: `POST`
+* **功能**: 将图片转换为 WebP 格式
+* **参数**: 
+  * `image`: 要转换的图片文件（multipart/form-data）
+  * `response_type`: 响应类型（webp/base64，默认 webp）
+  * `lossless`: 是否使用无损转换（true/false，默认 false）
+  * `quality`: 图片质量（0-100，默认 80）
+  * `near_lossless`: 近无损转换级别（0-100，默认 100）
+  * `compression_level`: 压缩级别（0-9，默认 6）
+  * `preset`: 预设配置（default, photo, picture, drawing, icon, text）
+  * `method`: 压缩方法（0-6，默认 4）
+
+* **响应**: 
+  * `webp` 类型：JSON 格式，包含图片 ID 和下载 URL
+  * `base64` 类型：JSON 格式，包含 Base64 编码的 WebP 数据
+
+### 6.3 获取 WebP 图片
+
+* **URL**: `/api/images/:id`
+* **方法**: `GET`
+* **功能**: 获取转换后的 WebP 图片
+* **参数**: 图片 ID（URL 路径参数）
+* **响应**: WebP 图片二进制数据
+
+## 7. 使用示例
+
+### 7.1 健康检查
+
+```bash
+curl http://localhost:3333/health
+```
+
+### 7.2 上传图片并返回 webp 下载地址
+
+```bash
+curl -X POST -F "image=@input.jpg" http://localhost:3333/api/convert
+```
+
+### 7.3 上传图片并返回 base64 编码
+
+```bash
+curl -X POST -F "image=@input.jpg" -F "response_type=base64" http://localhost:3333/api/convert
+```
+
+### 7.4 获取 webp 图片
+
+```bash
+curl -X GET http://localhost:3333/api/images/1234567890abcdef -o output.webp
+```
+
+### 7.5 带转换参数的示例
+
+```bash
+# 无损转换，返回 base64
+curl -X POST -F "image=@input.png" -F "lossless=true" -F "response_type=base64" http://localhost:3333/api/convert
+
+# 有损转换，质量 75，压缩级别 9
+curl -X POST -F "image=@input.jpg" -F "lossless=false" -F "quality=75" -F "compression_level=9" http://localhost:3333/api/convert
+```
+
+## 8. cwebp 命令说明
+
+### 8.1 基本语法
+
+```
 cwebp [options] input_file -o output_file.webp
-
-说明
-cwebp 使用 WebP 格式压缩图片。输入格式可以是 PNG、JPEG、TIFF、WebP 或原始 Y'CbCr 样本。 注意：不支持 PNG 和 WebP 动画文件。
-
-选项
-基本选项包括：
-
--o string
-指定输出 WebP 文件的名称。如果省略，cwebp 将执行 压缩，但只报告统计信息。 使用“-”作为输出名称将会将输出定向到“stdout”。
--- string
-明确指定输入文件。如果输入文件以“-”开头，此选项会很有用。此选项必须显示 last。之后的任何其他选项都会被忽略。
--h, -help
-简短的使用情况摘要。
--H, -longhelp
-所有可能选项的摘要。
--version
-输出版本号（格式为 major.minor.revision）并退出。
--lossless
-编码图片，不会造成任何损失。对于包含完全透明区域的图片，只有使用 -exact 选项时，不可见的像素值 (R/G/B 或 Y/U/V) 才会保留。
--near_lossless int
-指定近乎无损图片预处理的级别。此选项会调整像素值以提高压缩率，但对视觉质量的影响微乎其微。它会自动触发无损压缩模式。范围为 0（最大预处理）到 100（无预处理，默认值）。一般值约为 60。请注意，-q 100 有损 有时可能会带来更好的效果。
--q float
-指定 RGB 通道的压缩系数，介于 0 和 100 之间。默认值为 75。
-
-如果是有损压缩（默认），较小的系数会产生较小的 质量较低的文件使用值 100 可实现最佳画质。
-
-对于无损压缩（由 -lossless 选项指定）， 较小的系数可以加快压缩速度，但生成的文件较大。 通过使用值 100，可以实现最大压缩。
-
--z int
-开启 lossless 压缩模式，并指定级别（介于 0 到 9 之间），其中级别 0 表示最快，级别 9 表示最慢。与速度较慢的模式相比，快速模式生成的文件大小更大。建议采用 -z 6 作为默认值。 此选项实际上是质量和方法的一些预定义设置的快捷方式。如果随后使用选项 -q 或 -m，它们将使此选项失效。
-
--alpha_q int
-指定介于 0 和 100 之间的 Alpha 压缩压缩系数。使用值 100 可实现对 alpha 的无损压缩，而较低的值会导致有损压缩。默认值为 100。
-
--preset string
-指定一组预定义参数，以适应特定类型的源材料。可能的值包括：default、photo、picture、 drawing、icon、text。
-
-由于 -preset 会覆盖其他参数的值（-q 除外），因此此选项应优先按参数顺序显示。
-
--m int
-指定要使用的压缩方法。此参数用于控制 编码速度与压缩文件大小和质量之间的差距。 可能的值范围为 0 到 6。默认值为 4。 较高时 那么编码器会花更多时间检查 编码可能性并决定质量增益。较小的值可以 但处理速度较快，但文件较大和 降低压缩质量。
-
--crop x_position y_position width height
-将来源剪裁为左上角位于坐标处的矩形 （x_position，y_position），尺寸为 width x height。此剪裁 必须完全包含在源矩形内。注意：剪裁会在任何缩放之前应用。
-
--resize width height
-将源大小调整为大小为 width x height 的矩形。如果其中任一情况 （但不是两者）宽度或高度参数为 0，则值将 保留宽高比值。注意：缩放是在应用时间之后 剪裁。
-
--mt
-如有可能，请使用多线程进行编码。
-
--low_memory
-通过将四倍于压缩后压缩文件的大小 尺寸（通常）。这会减慢编码速度 在大小和失真方面稍有不同此标志仅适用于方法 3 及更高版本，默认处于关闭状态。请注意，如果不启用此标志，将会对比特流产生一些副作用：它会强制使用某些比特流功能，例如分区数量（强制设为 1）。请注意，使用此选项时，cwebp 会输出比特流大小的更详细报告。
-
-有损选项
-这些选项仅在进行有损编码（默认 或不使用 alpha 值）。
-
--size int
-指定要尝试为压缩包覆盖的目标大小（以字节为单位） 输出。压缩器将进行多次部分编码，以尽可能接近此目标。如果同时使用 -size 和 -psnr，则 -size 值将优先。
--psnr float
-指定要尝试达到压缩输出的目标 PSNR（以 dB 为单位）。 压缩器将进行多次部分编码，以尽可能接近此目标。如果同时使用 -size 和 -psnr，则 -size 值将优先。
--pass int
-设置选项 -size 或 -psnr 在二分法期间要使用的最大传递次数。最大值为 10，默认值为 1。如果选项 使用了 -size 或 -psnr，但未指定 -pass（默认值） /“6”卡券。如果指定了 -pass，但未指定 -size 和 -psnr，则将使用 40dB 的目标 PSNR。
--af
-开启自动过滤功能。此算法将花费更多时间进行优化 过滤强度以达到平衡的质量。
--jpeg_like
-更改了内部参数映射，以更好地匹配 JPEG 压缩的预期大小。此标志通常会生成 尺寸与其等效的 JPEG 类似（对于相同的 -q 设置），但使用 减少视觉失真
-高级选项：
-
--f int
-指定去块滤波器的强度，介于 0（不滤波）之间 和 100（最大过滤）。值为 0 会关闭所有过滤。值越高，在解码图片后应用的滤除流程的强度就越大。值越高，图片看起来越流畅。典型值通常介于 20 到 50 之间。
--sharpness int
-指定滤镜的锐度（如果使用）。范围为 0（最锐利）到 7（最不锐利）。默认值为 0。
--strong
-使用强效过滤（如果由于 -f 选项而使用过滤）。强力过滤功能默认处于开启状态。
--nostrong
-停用强效过滤（如果使用了 -f 的过滤功能） 选项），并改用简单的过滤。
--sharp_yuv
-使用更准确、更清晰的 RGB 向 YUV 转换。请注意，此过程的速度比默认的“快速”RGB 转换为 YUV 慢。
--sns int
-指定空间噪声形状的振幅。空间噪声形状调整 （简称 sns）是指内置算法的常规集合 用于确定图片的哪个区域应该使用相对较少的位， 以及在哪里能更好地传输这些位可能的范围为 0（算法处于关闭状态）到 100（最大效果）。默认值为 50。
--segments int
-更改在 sns 算法分段期间要使用的分区数量。细分应介于 1 到 4 之间。默认值为 4。 除非使用 -low_memory，否则此选项对方法 3 及更高版本没有影响。
--partition_limit int
-通过限制某些宏块使用的位数来降低画质。范围介于 0（无降级，默认值）和 100（完全降级）之间。对于中等大的图片，有用的值通常为 30-70 左右。在 VP8 格式中，所谓的控制分区上限为 512k，用于存储以下信息：是否跳过宏块、它属于哪个分块、它是编码为内部 4x4 模式还是内部 16x16 模式，以及最后要为每个子块使用的预测模式。对于非常大的图片，512k 只会为每个 16x16 宏块留出几个位。绝对最小值为每个宏块 4 位。跳过、分段和模式信息可能会占用这 4 位中的几乎所有位（尽管这种情况不太可能），这对于非常大的图片来说会造成问题。partition_limit 系数用于控制使用最耗位模式（4x4 内）的频率。如果达到 512k 的限制并显示以下消息，此操作会很有用：错误代码：6 (PARTITION0_OVERFLOW: Partition #0 is too big to fit 512k)。如果使用 -partition_limit 不足以满足 512k 的限制，则应使用较少的片段，以便为每个宏块节省更多标头位。请参阅 -segments 选项。请注意，-m 和 -q 选项也会影响编码器的决策和达到此限制的能力。
-日志记录选项
-这些选项用于控制输出级别：
-
--v
-输出额外信息（特别是编码时间）。
--print_psnr
-计算并报告平均 PSNR（峰值信噪比）。
--print_ssim
-计算并报告平均 SSIM（结构相似性指标，如需了解详情，请参阅 https://en.wikipedia.org/wiki/SSIM）。
--print_lsim
-计算并报告局部相似性指标（相邻像素邻居之间最低误差之和）。
--progress
-以百分比报告编码进度。
--quiet
-不输出任何内容。
--short
-仅出于测试目的输出简要信息（输出文件大小和 PSNR）。
--map int
-输出编码信息的其他 ASCII 映射。可能的地图值范围为 1 到 6。这仅用于帮助调试。
-其他选项
-更多高级选项包括：
-
--s width height
-指定输入文件实际包含原始 Y'CbCr 样本 ITU-R BT.601 建议，采用 4:2:0 线性格式。亮度平面大小为 width x height。
--pre int
-指定一些预处理步骤。使用值 2 将会触发 RGBA->YUVA 转换期间依赖于质量的伪随机抖动 （仅限有损压缩）。
--alpha_filter string
-为 Alpha 平面指定预测过滤方法。none、fast 或 best 之一，复杂性和速度依次递增。默认值为 fast。在内部，系统使用四种可能的预测（无、水平、垂直、梯度）执行 Alpha 滤除。best 模式会依次尝试每种模式，并从中选择 。fast 模式只会尝试形成先验性猜测，而不会测试所有模式。
--alpha_method int
-指定用于 Alpha 压缩的算法：0 或 1。算法 0 表示不压缩，1 使用 WebP 无损格式进行压缩。 默认值为 1。
--exact
-保留透明区域中的 RGB 值。默认为关闭 可压缩性。
--blend_alpha int
-此选项会使用 以十六进制形式指定为 0xrrggbb 的背景颜色。之后，Alpha 通道会重置为不透明值 255。
--noalpha
-使用此选项将舍弃 Alpha 通道。
--hint string
-指定有关输入图片类型的提示。可能的值包括：photo、 picture 或 graph。
--metadata string
-要从输入复制到输出的元数据（如果有）的逗号分隔列表。有效值：all、none、exif、icc、xmp。默认值为 none。
-
-请注意，每种输入格式可能并不支持所有组合。
-
--noasm
-停用所有汇编优化。
-
 ```
+
+### 8.2 常用选项
+
+* **无损压缩选项**：
+  * `-lossless`：使用无损压缩
+  * `-near_lossless <int>`：近无损压缩级别（0-100）
+  * `-z <int>`：压缩级别（0-9）
+
+* **有损压缩选项**：
+  * `-q <float>`：图片质量（0-100）
+  * `-m <int>`：压缩方法（0-6）
+
+* **其他常用选项**：
+  * `-preset <string>`：预设配置（default, photo, picture, drawing, icon, text）
+  * `-alpha_q <int>`：Alpha 通道质量（0-100）
+  * `-resize <width> <height>`：调整图片大小
+  * `-crop <x> <y> <width> <height>`：裁剪图片
+  * `-mt`：使用多线程编码
+
+### 8.3 示例
+
+* **示例 1**：无损压缩图片为 webp 格式（最高质量）
+  ```
+  cwebp -lossless -near_lossless 100 input.png -o output.webp
+  ```
+
+* **示例 2**：无损压缩图片为 webp 格式（中等质量）
+  ```
+  cwebp -lossless -near_lossless 60 input.png -o output.webp
+  ```
+
+* **示例 3**：有损压缩图片为 webp 格式（最高质量）
+  ```
+  cwebp -q 100 input.png -o output.webp
+  ```
+
+* **示例 4**：有损压缩图片为 webp 格式（中等质量）
+  ```
+  cwebp -q 75 input.png -o output.webp
+  ```
+
+## 9. 注意事项
+
+1. **cwebp 工具**：服务依赖 cwebp 命令行工具，Docker 镜像已包含该工具
+2. **文件存储**：转换后的文件保存在 `/app/img_webp` 目录
+3. **文件自动清理**：
+   * 支持通过 `DELTIME` 环境变量配置文件保留时间（小时）
+   * 配置为 `0` 时，文件不会被自动删除
+   * 配置为其他值时，超过该时间的文件会被自动清理
+   * 清理任务每小时执行一次
+4. **图片大小限制**：
+   * 支持通过 `IMGSIZE` 环境变量配置最大上传图片大小（MB）
+   * 默认值为 `100`（即 100MB）
+   * 配置为 `0` 时，无大小限制
+   * 超过限制的图片会被拒绝，返回 400 Bad Request 错误
+5. **性能优化**：
+   * 对于高并发场景，建议使用负载均衡
+   * 可以调整 `method` 参数来平衡转换速度和文件大小
+   * 对于频繁使用的转换参数，可以考虑使用预设配置
+6. **错误处理**：服务会返回详细的错误信息，便于调试和问题定位
+7. **Docker 部署**：
+   * 建议使用 `docker-compose` 进行部署，简化配置和管理
+   * 可以通过数据卷挂载 `/app/img_webp` 目录，实现数据持久化
+8. **安全建议**：
+   * 生产环境建议添加认证机制
+   * 限制最大文件大小，防止过大的图片导致服务崩溃
+   * 考虑添加 IP 白名单或访问控制
+
+## 10. 项目结构详解
+
+### 10.1 主入口文件（main.rs）
+
+主入口文件负责初始化日志、启动服务器和处理全局配置。
+
+### 10.2 服务器配置（server.rs）
+
+服务器配置文件负责设置 Actix Web 服务器、注册路由和中间件。
+
+### 10.3 路由模块（routes/）
+
+* **convert.rs**：处理图片转换请求，包括文件上传、转换参数解析和响应生成
+* **health.rs**：提供健康检查端点
+* **mod.rs**：路由模块的入口文件，负责注册所有路由
+
+### 10.4 业务逻辑（services/）
+
+* **cwebp.rs**：封装 cwebp 命令行工具的调用，处理图片转换逻辑
+
+### 10.5 工具函数（utils/）
+
+* **file.rs**：提供文件处理相关的工具函数，包括临时文件管理和自动清理
+
+## 11. 构建和部署
+
+### 11.1 开发构建
+
+```bash
+cargo build
+```
+
+### 11.2 生产构建
+
+```bash
+cargo build --release
+```
+
+### 11.3 运行测试
+
+```bash
+cargo test
+```
+
+### 11.4 Docker 构建
+
+```bash
+docker build -t cwebp-api .
+```
+
+### 11.5 Docker Compose 示例
+
+```yaml
+version: '3.9'
+
+services:
+  cwebp-api:
+    build: .
+    image: cwebp-api:latest
+    container_name: cwebp-api
+    ports:
+      - "3333:3333"
+    environment:
+      - DELTIME=72
+    volumes:
+      - ./img_webp:/app/img_webp
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+## 12. 性能特点
+
+* **高性能**：基于 Rust 和 Actix Web，具有出色的并发处理能力
+* **低内存占用**：Rust 的内存管理机制确保了高效的内存使用
+* **快速启动**：服务启动时间短，适合容器化部署
+* **高可靠性**：Rust 的类型系统和内存安全特性减少了运行时错误
+
+## 13. 扩展建议
+
+1. **添加认证机制**：为 API 添加 API 密钥认证或 OAuth 2.0 认证
+2. **实现转换队列**：支持异步转换，处理大量并发请求
+3. **添加监控和 metrics**：集成 Prometheus 和 Grafana，监控服务性能和转换统计
+4. **支持更多转换参数**：扩展支持 cwebp 的所有命令行选项
+5. **添加 Web UI**：提供简单易用的 Web 界面，便于测试和使用
+6. **支持批量转换**：添加批量转换 API，一次处理多个图片
+7. **实现图片大小限制**：防止过大的图片导致服务崩溃
+8. **添加格式验证**：确保只处理支持的图片格式
+
+## 14. 版本历史
+
+* **v1.0.0 (2025-12-16)**：
+  * 初始版本，基于 Rust + Actix Web 开发
+  * 支持基本的图片转换功能
+  * 支持两种响应类型：webp 和 base64
+  * 提供 Docker 部署支持
+
+## 15. 许可证
+
+MIT License

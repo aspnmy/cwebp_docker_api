@@ -1,0 +1,10 @@
+target/
+.env
+.trae/documents/
+vendor/
+**/*.log
+logs/
+logs/app.log
+updata/
+**/*.dcm
+.trae/documents/
